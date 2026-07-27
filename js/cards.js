@@ -1,4 +1,4 @@
-import { S, save } from './data.js';
+import { S, saveCards } from './data.js';
 import { esc, toast } from './utils.js';
 
 var studyQ=[], studyIdx=0;
@@ -21,7 +21,7 @@ export function toggleCardStatus(id){
   var c=S.cards.find(function(x){return x.id===id;});
   if(!c) return;
   c.status=c.status==='known'?'learning':'known';
-  save(); renderCards();
+  saveCards(); renderCards();
 }
 export function toggleAddCard(){document.getElementById('add-card-form').classList.toggle('open');}
 export function saveNewCard(){
@@ -31,7 +31,7 @@ export function saveNewCard(){
   var cat=document.getElementById('cf-cat').value.trim();
   if(!thai||!en){toast('Thai and English fields are required');return;}
   S.cards.push({id:'c'+Date.now(),thai:thai,rom:rom,en:en,cat:cat||'General',status:'new'});
-  save();
+  saveCards();
   ['cf-thai','cf-rom','cf-en','cf-cat'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-card-form').classList.remove('open');
   renderCards(); toast('Card added!');
@@ -58,7 +58,7 @@ function loadStudyCard(){
 }
 export function flipCard(){document.getElementById('flip-card').classList.toggle('flipped');}
 export function studyNext(ok){
-  if(ok){var c=S.cards.find(function(x){return x.id===studyQ[studyIdx].id;});if(c){c.status='known';save();}}
+  if(ok){var c=S.cards.find(function(x){return x.id===studyQ[studyIdx].id;});if(c){c.status='known';saveCards();}}
   studyIdx++;
   if(studyIdx>=studyQ.length){endStudy();renderCards();toast('Study session complete!');return;}
   loadStudyCard();

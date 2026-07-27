@@ -1,4 +1,4 @@
-import { S, save } from './data.js';
+import { S, saveEntries } from './data.js';
 import { esc, fmtDate, toast, statusPill, renderEntryImgs } from './utils.js';
 
 var currentReviewId=null;
@@ -48,7 +48,7 @@ export function sendReview(){
   if(!e) return;
   e.status='reviewed';
   e.nitaComment=document.getElementById('rv-comment').value.trim();
-  save(); closeReview(); renderNitaQueue(); toast('Feedback sent!');
+  saveEntries(); closeReview(); renderNitaQueue(); toast('Feedback sent!');
 }
 export function renderAnnotatedText(body,annotations,opts){
   opts=opts||{};
@@ -137,14 +137,14 @@ export function saveAnnotation(){
   } else {
     e.annotations.push({id:'a'+Date.now(),start:annCtx.selStart,end:annCtx.selEnd,original:annCtx.selText,correction:corr,note:note});
   }
-  save(); closeAnnotPopup(); renderReviewBody(e); toast('Annotation saved!');
+  saveEntries(); closeAnnotPopup(); renderReviewBody(e); toast('Annotation saved!');
 }
 export function deleteAnnotation(){
   if(!annCtx.editingId) return;
   var e=S.entries.find(function(x){return x.id===annCtx.journalId;});
   if(!e) return;
   e.annotations=e.annotations.filter(function(a){return a.id!==annCtx.editingId;});
-  save(); closeAnnotPopup(); renderReviewBody(e); toast('Annotation removed');
+  saveEntries(); closeAnnotPopup(); renderReviewBody(e); toast('Annotation removed');
 }
 export function editAnnotation(journalId,annId){
   var e=S.entries.find(function(x){return x.id===journalId;});
