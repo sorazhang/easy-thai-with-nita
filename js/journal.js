@@ -1,4 +1,4 @@
-import { S, save } from './data.js';
+import { S, saveEntries } from './data.js';
 import { esc, fmtDate, toast, statusPill, renderEntryImgs, resizeImageToLimit } from './utils.js';
 import { renderAnnotatedText } from './annotations.js';
 
@@ -66,14 +66,14 @@ export function saveDraft(){
   var body=document.getElementById('entry-body-in').value.trim();
   if(!title||!body){toast('Please fill in title and body');return;}
   S.entries.push({id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'draft',annotations:[],nitaComment:''});
-  save(); closeEditor(); renderJournalList(); toast('Draft saved!');
+  saveEntries(); closeEditor(); renderJournalList(); toast('Draft saved!');
 }
 export function submitJournal(){
   var title=document.getElementById('entry-title-in').value.trim();
   var body=document.getElementById('entry-body-in').value.trim();
   if(!title||!body){toast('Please fill in title and body');return;}
   S.entries.push({id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'submitted',annotations:[],nitaComment:''});
-  save(); closeEditor(); renderJournalList(); toast('Submitted to Kru Nita!');
+  saveEntries(); closeEditor(); renderJournalList(); toast('Submitted to Kru Nita!');
 }
 var currentJournalId=null;
 export function openEntry(id){

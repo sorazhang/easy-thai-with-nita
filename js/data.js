@@ -146,22 +146,36 @@ export const SEED = {
 
 export var S = {user:'',role:'student',sessions:[],cards:[],entries:[]};
 
+/* Sessions and journal entries are shared across every account (Kru Nita's
+   session notes and every student's journal submissions all need to be
+   visible to each other) — only vocab cards are private per student. Older
+   per-user session/entry data from before this split is read once as a
+   fallback so nothing already saved gets silently lost. */
 export function loadData(uid, callback){
   var seedSessions = JSON.parse(JSON.stringify(SEED.sessions));
-  fbDb.ref('users/' + uid).once('value').then(function(snap){
-    var d = snap.val();
-    if(d){
-      var ids = (d.sessions||[]).map(function(s){return s.id;});
-      seedSessions.forEach(function(s){ if(ids.indexOf(s.id)===-1)(d.sessions=d.sessions||[]).push(s); });
-      callback({sessions:d.sessions||seedSessions, cards:d.cards||[], entries:d.entries||[]});
-    } else {
-      callback({sessions:seedSessions, cards:[], entries:[]});
-    }
-  }).catch(function(){ callback({sessions:seedSessions, cards:[], entries:[]}); });
+  var seedEntries = JSON.parse(JSON.stringify(SEED.entries));
+  Promise.all([
+    fbDb.ref('sessions').once('value'),
+    fbDb.ref('entries').once('value'),
+    fbDb.ref('users/' + uid).once('value')
+  ]).then(function(snaps){
+    var legacy = snaps[2].val() || {};
+    var sessions = snaps[0].val() || legacy.sessions || seedSessions;
+    var ids = sessions.map(function(s){return s.id;});
+    seedSessions.forEach(function(s){ if(ids.indexOf(s.id)===-1) sessions.push(s); });
+    var entries = snaps[1].val() || legacy.entries || seedEntries;
+    callback({sessions:sessions, entries:entries, cards:legacy.cards||[]});
+  }).catch(function(){ callback({sessions:seedSessions, entries:seedEntries, cards:[]}); });
 }
 
-export function save(){
+export function saveSessions(){
+  fbDb.ref('sessions').set(S.sessions);
+}
+export function saveEntries(){
+  fbDb.ref('entries').set(S.entries);
+}
+export function saveCards(){
   var uid = fbAuth.currentUser ? fbAuth.currentUser.uid : null;
   if(!uid) return;
-  fbDb.ref('users/' + uid).set({sessions:S.sessions, cards:S.cards, entries:S.entries});
+  fbDb.ref('users/' + uid + '/cards').set(S.cards);
 }

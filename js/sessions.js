@@ -1,4 +1,4 @@
-import { S, save } from './data.js';
+import { S, saveSessions, saveCards } from './data.js';
 import { esc, fmtDate, toast, renderEntryImgs, resizeImageToLimit } from './utils.js';
 
 var currentSessionId=null;
@@ -50,7 +50,7 @@ export function setSessionStatus(status){
   var s=S.sessions.find(function(x){return x.id===currentSessionId;});
   if(!s) return;
   s.status=status;
-  save();
+  saveSessions();
   renderSessions();
   document.getElementById('sessions-list').style.display='none';
   document.getElementById('session-detail').style.display='block';
@@ -125,7 +125,7 @@ export function confirmAddWord(){
     thai:v.th,rom:v.rom,en:v.en,cat:cat,status:'new',
     sentence:sentence||''
   });
-  save();
+  saveCards();
   closeAddWordModal();
   openSession(currentSessionId);
   toast('Added to your vocab!');
@@ -140,7 +140,7 @@ export function addSessionCards(){
       added++;
     }
   });
-  save();
+  saveCards();
   toast(added?'Added '+added+' card'+(added>1?'s':'')+' to your deck!':'All vocab already in your deck');
 }
 export function toggleAddSession(){document.getElementById('add-session-form').classList.toggle('open');}
@@ -150,7 +150,7 @@ export function saveSession(){
   var loc=document.getElementById('sf-loc').value.trim();
   if(!en||!th){toast('Please fill in both topic fields');return;}
   S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[],status:'published'});
-  save();
+  saveSessions();
   ['sf-en','sf-th','sf-loc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-session-form').classList.remove('open');
   renderSessions(); toast('Session added! Open it to post the note and photos.');
@@ -192,7 +192,7 @@ export function postSessionUpdate(){
   s.note=document.getElementById('sd-note-edit').value.trim();
   s.images=(s.images||[]).concat(sdImgs);
   sdImgs=[];
-  save();
+  saveSessions();
   openSession(currentSessionId);
   toast('Session posted!');
 }
