@@ -1,4 +1,4 @@
-export var TEACHER_EMAIL = 'YOUR_NITA_EMAIL@gmail.com'; // replace with Kru Nita's Google email
+export var TEACHER_EMAIL = 'easythaiwithnita@gmail.com';
 firebase.initializeApp({
   apiKey:"AIzaSyBkKf_2Tzxe6emQim9x3Ez5f221KbUd3nk",
   authDomain:"easy-thai-with-nita.firebaseapp.com",
