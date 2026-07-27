@@ -18,8 +18,8 @@ export function renderSessions(){
       +'<div class="sc-topic">'+esc(s.topicTh)+'</div>'
       +'<div class="sc-sub">'+esc(s.topicEn)+'</div>'
       +'<div class="sc-pills">'
-      +'<span class="pill pill-g">'+s.vocab.length+' vocab</span>'
-      +'<span class="pill pill-m">'+s.phrases.length+' phrases</span>'
+      +'<span class="pill pill-g">'+(s.vocab||[]).length+' vocab</span>'
+      +'<span class="pill pill-m">'+(s.phrases||[]).length+' phrases</span>'
       +'</div></div>';
   }).join('');
 }
@@ -31,7 +31,7 @@ export function openSession(id){
   document.getElementById('session-detail').style.display='block';
   document.getElementById('sd-title').textContent=s.topicTh+' — '+s.topicEn;
   document.getElementById('sd-meta').textContent=fmtDate(s.date)+' · '+s.location;
-  document.getElementById('sd-vocab').innerHTML=s.vocab.map(function(v,idx){
+  document.getElementById('sd-vocab').innerHTML=(s.vocab||[]).map(function(v,idx){
     var saved=!!S.cards.find(function(c){return c.thai===v.th;});
     var btnCls='vc-add-btn'+(saved?' vc-saved':'');
     var btnTxt=saved?'✓ Saved':'+ Add to Vocab';
@@ -43,7 +43,7 @@ export function openSession(id){
       +'<button class="'+btnCls+'" '+btnAttr+'>'+btnTxt+'</button>'
       +'</div>';
   }).join('');
-  document.getElementById('sd-phrases').innerHTML=s.phrases.map(function(p){
+  document.getElementById('sd-phrases').innerHTML=(s.phrases||[]).map(function(p){
     return '<div class="phrase-item">'+'<div class="ph-th">'+esc(p.th)+'</div>'+'<div class="ph-en">'+esc(p.en)+'</div>'+'</div>';
   }).join('');
   document.getElementById('sd-note').textContent=s.note||'';
@@ -60,7 +60,7 @@ export function closeSession(){
 }
 export function openAddWordModalByIdx(idx){
   var s=S.sessions.find(function(x){return x.id===currentSessionId;});
-  if(!s||!s.vocab[idx]) return;
+  if(!s||!s.vocab||!s.vocab[idx]) return;
   openAddWordModal(s.vocab[idx],s.topicEn);
 }
 function openAddWordModal(v,cat){
@@ -99,7 +99,7 @@ export function addSessionCards(){
   var s=S.sessions.find(function(x){return x.id===currentSessionId;});
   if(!s) return;
   var added=0;
-  s.vocab.forEach(function(v){
+  (s.vocab||[]).forEach(function(v){
     if(!S.cards.find(function(c){return c.thai===v.th;})){
       S.cards.push({id:'c'+Date.now()+'r'+Math.random().toString(36).slice(2,6),thai:v.th,rom:v.rom,en:v.en,cat:s.topicEn,status:'new'});
       added++;
