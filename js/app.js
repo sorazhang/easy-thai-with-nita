@@ -5,7 +5,8 @@ import { toggleAuthMode, submitAuth, resetPassword } from './auth.js';
 import { startApp, openNav, closeNav, navTo, logout, switchRole } from './nav.js';
 import {
   toggleAddSession, saveSession, closeSession, addSessionCards,
-  openSession, openAddWordModalByIdx, closeAddWordModal, confirmAddWord
+  openSession, openAddWordModalByIdx, closeAddWordModal, confirmAddWord,
+  handleSessionImages, removeSdImg, postSessionUpdate
 } from './sessions.js';
 import { toggleAddCard, startStudy, saveNewCard, toggleCardStatus, flipCard, studyNext, endStudy } from './cards.js';
 import {
@@ -53,6 +54,7 @@ Object.assign(window, {
   openNav, closeNav, navTo, logout, switchRole,
   toggleAddSession, saveSession, closeSession, addSessionCards,
   openSession, openAddWordModalByIdx, closeAddWordModal, confirmAddWord,
+  handleSessionImages, removeSdImg, postSessionUpdate,
   toggleAddCard, startStudy, saveNewCard, toggleCardStatus, flipCard, studyNext, endStudy,
   handleJournalImages, closeEditor, saveDraft, submitJournal, openEditor,
   shareJournal, openEntry, removeJImg, viewImg, closeImgViewer, closeEntryRead,

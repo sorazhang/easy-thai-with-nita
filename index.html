@@ -270,7 +270,6 @@
         <div class="form-row"><label>Topic (English)</label><input class="form-input" id="sf-en" placeholder="e.g. Greetings"></div>
         <div class="form-row"><label>Topic (Thai)</label><input class="form-input" id="sf-th" placeholder="e.g. การทักทาย"></div>
         <div class="form-row"><label>Location</label><input class="form-input" id="sf-loc" placeholder="e.g. Mango Café"></div>
-        <div class="form-row"><label>Nita's Note</label><textarea class="form-input" id="sf-note" rows="2" style="resize:vertical"></textarea></div>
         <div class="form-actions">
           <button class="btn-sm" onclick="toggleAddSession()">Cancel</button>
           <button class="btn-sm pri" onclick="saveSession()">Save Session</button>
@@ -285,7 +284,16 @@
         <div class="vocab-grid" id="sd-vocab"></div>
         <div class="section-label" style="margin-top:1rem">Key Phrases</div>
         <div id="sd-phrases"></div>
+        <div id="sd-images"></div>
         <div class="nita-box"><div class="nita-label">👩‍🏫 Nita's Note</div><div class="nita-note" id="sd-note"></div></div>
+        <div id="sd-teacher-edit" style="display:none">
+          <div class="section-label" style="margin-top:1rem">📤 Post Session Update</div>
+          <div class="jimg-strip" id="sd-img-strip"></div>
+          <input type="file" id="sd-img-input" accept="image/*" multiple style="display:none" onchange="handleSessionImages(this)">
+          <button class="btn-sm" onclick="document.getElementById('sd-img-input').click()">📷 Add Photos</button>
+          <textarea class="form-input" id="sd-note-edit" rows="3" placeholder="Write Kru Nita's note for this session…" style="resize:vertical;margin-top:.6rem"></textarea>
+          <button class="btn-full" onclick="postSessionUpdate()">📤 Post Update</button>
+        </div>
         <button class="btn-full" onclick="addSessionCards()">Add This Session's Vocab to My Cards</button>
       </div>
     </div>

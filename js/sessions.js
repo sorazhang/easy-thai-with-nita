@@ -1,8 +1,9 @@
 import { S, save } from './data.js';
-import { esc, fmtDate, toast } from './utils.js';
+import { esc, fmtDate, toast, renderEntryImgs, resizeImageToLimit } from './utils.js';
 
 var currentSessionId=null;
 var pendingWord=null;
+var sdImgs=[];
 
 export function renderSessions(){
   document.getElementById('sessions-list').style.display='';
@@ -45,7 +46,12 @@ export function openSession(id){
   document.getElementById('sd-phrases').innerHTML=s.phrases.map(function(p){
     return '<div class="phrase-item">'+'<div class="ph-th">'+esc(p.th)+'</div>'+'<div class="ph-en">'+esc(p.en)+'</div>'+'</div>';
   }).join('');
-  document.getElementById('sd-note').textContent=s.note;
+  document.getElementById('sd-note').textContent=s.note||'';
+  renderEntryImgs(s.images,'sd-images');
+  sdImgs=[];
+  renderSdImgStrip();
+  document.getElementById('sd-note-edit').value=s.note||'';
+  document.getElementById('sd-teacher-edit').style.display=S.role==='teacher'?'':'none';
 }
 export function closeSession(){
   currentSessionId=null;
@@ -107,11 +113,51 @@ export function saveSession(){
   var en=document.getElementById('sf-en').value.trim();
   var th=document.getElementById('sf-th').value.trim();
   var loc=document.getElementById('sf-loc').value.trim();
-  var note=document.getElementById('sf-note').value.trim();
   if(!en||!th){toast('Please fill in both topic fields');return;}
-  S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:note||''});
+  S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[]});
   save();
-  ['sf-en','sf-th','sf-loc','sf-note'].forEach(function(id){document.getElementById(id).value='';});
+  ['sf-en','sf-th','sf-loc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-session-form').classList.remove('open');
-  renderSessions(); toast('Session added!');
+  renderSessions(); toast('Session added! Open it to post the note and photos.');
+}
+/* ── Teacher: post session note + photos after class ── */
+export function handleSessionImages(input){
+  var skipped=0;
+  var files=Array.from(input.files);
+  files.forEach(function(file){
+    if(file.size>15*1024*1024){skipped++;
+      if(skipped===files.length) toast('Images too large to process (max ~15 MB original)');
+      return;
+    }
+    var reader=new FileReader();
+    reader.onload=function(e){
+      resizeImageToLimit(e.target.result,function(resized){
+        if(resized===null){
+          toast('One image could not fit under 2 MB — skipped');return;
+        }
+        sdImgs.push(resized);
+        renderSdImgStrip();
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+export function renderSdImgStrip(){
+  var strip=document.getElementById('sd-img-strip');
+  if(!strip) return;
+  strip.innerHTML=sdImgs.map(function(src,i){
+    return '<div class="jimg-thumb"><img src="'+src+'"><button class="jimg-rm" onclick="removeSdImg('+i+')">×</button></div>';
+  }).join('');
+}
+export function removeSdImg(i){sdImgs.splice(i,1);renderSdImgStrip();}
+export function postSessionUpdate(){
+  var s=S.sessions.find(function(x){return x.id===currentSessionId;});
+  if(!s) return;
+  s.note=document.getElementById('sd-note-edit').value.trim();
+  s.images=(s.images||[]).concat(sdImgs);
+  sdImgs=[];
+  save();
+  openSession(currentSessionId);
+  toast('Session posted!');
 }

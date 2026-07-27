@@ -1,5 +1,5 @@
 import { S, save } from './data.js';
-import { esc, fmtDate, toast, statusPill, renderEntryImgs } from './utils.js';
+import { esc, fmtDate, toast, statusPill, renderEntryImgs, resizeImageToLimit } from './utils.js';
 import { renderAnnotatedText } from './annotations.js';
 
 export function renderJournalList(){
@@ -11,7 +11,6 @@ export function renderJournalList(){
 }
 /* ── Journal image helpers ── */
 var jImgs=[];
-var MAX_IMG_BYTES=2*1024*1024; /* 2 MB limit per image */
 export function handleJournalImages(input){
   var skipped=0;
   var files=Array.from(input.files);
@@ -23,7 +22,7 @@ export function handleJournalImages(input){
     }
     var reader=new FileReader();
     reader.onload=function(e){
-      resizeJImg(e.target.result,function(resized){
+      resizeImageToLimit(e.target.result,function(resized){
         if(resized===null){
           toast('One image could not fit under 2 MB — skipped');return;
         }
@@ -34,27 +33,6 @@ export function handleJournalImages(input){
     reader.readAsDataURL(file);
   });
   input.value='';
-}
-function resizeJImg(src,cb){
-  var img=new Image();
-  img.onload=function(){
-    var maxW=1200,w=img.width,h=img.height;
-    if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-    var c=document.createElement('canvas');
-    c.width=w;c.height=h;
-    c.getContext('2d').drawImage(img,0,0,w,h);
-    /* Try reducing quality until output is under MAX_IMG_BYTES */
-    var quality=0.78;
-    var result;
-    while(quality>=0.3){
-      result=c.toDataURL('image/jpeg',quality);
-      /* base64 overhead: actual bytes ≈ length * 0.75 */
-      if(result.length*0.75<=MAX_IMG_BYTES) break;
-      quality=Math.round((quality-0.1)*10)/10;
-    }
-    cb(result.length*0.75<=MAX_IMG_BYTES?result:null);
-  };
-  img.src=src;
 }
 export function renderJImgStrip(){
   var strip=document.getElementById('journal-img-strip');
