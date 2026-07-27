@@ -5,23 +5,57 @@ var currentSessionId=null;
 var pendingWord=null;
 var sdImgs=[];
 
+export function isPublished(s){ return !s.status||s.status==='published'; }
 export function renderSessions(){
   document.getElementById('sessions-list').style.display='';
   document.getElementById('session-detail').style.display='none';
   var today=new Date().toISOString().slice(0,10);
-  var sorted=S.sessions.slice().sort(function(a,b){return a.date<b.date?1:-1;});
-  document.getElementById('sessions-list').innerHTML=sorted.map(function(s){
+  var isTeacher=S.role==='teacher';
+  var visible=isTeacher?S.sessions:S.sessions.filter(isPublished);
+  var sorted=visible.slice().sort(function(a,b){return a.date<b.date?1:-1;});
+  document.getElementById('sessions-list').innerHTML=sorted.length?sorted.map(function(s){
     var upcoming=s.date>=today;
     var badge=upcoming?'<span class="pill pill-v" style="font-size:.63rem;vertical-align:middle;margin-left:.35rem">📅 Upcoming</span>':'';
+    var statusBadge='';
+    if(isTeacher&&s.status==='draft') statusBadge=' <span class="pill pill-m">📝 Draft</span>';
+    if(isTeacher&&s.status==='archived') statusBadge=' <span class="pill pill-m">🗄 Archived</span>';
     return '<div class="session-card'+(upcoming?' session-upcoming':'')+'" onclick="openSession(\''+s.id+'\')">'
-      +'<div class="sc-meta">'+esc(fmtDate(s.date))+' · '+esc(s.location)+badge+'</div>'
+      +'<div class="sc-meta">'+esc(fmtDate(s.date))+' · '+esc(s.location)+badge+statusBadge+'</div>'
       +'<div class="sc-topic">'+esc(s.topicTh)+'</div>'
       +'<div class="sc-sub">'+esc(s.topicEn)+'</div>'
       +'<div class="sc-pills">'
       +'<span class="pill pill-g">'+(s.vocab||[]).length+' vocab</span>'
       +'<span class="pill pill-m">'+(s.phrases||[]).length+' phrases</span>'
       +'</div></div>';
-  }).join('');
+  }).join(''):'<div class="empty-msg">No sessions yet.</div>';
+}
+function renderStatusActions(s){
+  var el=document.getElementById('sd-status-actions');
+  if(!el) return;
+  if(S.role!=='teacher'){ el.style.display='none'; el.innerHTML=''; return; }
+  var status=s.status||'published';
+  var label=status==='draft'
+    ?'<span class="pill pill-m">📝 Draft — hidden from students</span>'
+    :status==='archived'
+    ?'<span class="pill pill-m">🗄 Archived — hidden from students</span>'
+    :'<span class="pill pill-v">✅ Published — visible to students</span>';
+  var buttons='';
+  if(status!=='published') buttons+='<button class="btn-sm" onclick="setSessionStatus(\'published\')">✅ Publish</button>';
+  if(status!=='draft') buttons+='<button class="btn-sm" onclick="setSessionStatus(\'draft\')">📝 Draft</button>';
+  if(status!=='archived') buttons+='<button class="btn-sm" onclick="setSessionStatus(\'archived\')">🗄 Archive</button>';
+  el.style.display='block';
+  el.innerHTML='<div style="margin-bottom:.4rem">'+label+'</div><div style="display:flex;gap:.4rem;flex-wrap:wrap">'+buttons+'</div>';
+}
+export function setSessionStatus(status){
+  var s=S.sessions.find(function(x){return x.id===currentSessionId;});
+  if(!s) return;
+  s.status=status;
+  save();
+  renderSessions();
+  document.getElementById('sessions-list').style.display='none';
+  document.getElementById('session-detail').style.display='block';
+  renderStatusActions(s);
+  toast(status==='published'?'Session published!':status==='draft'?'Session set to draft':'Session archived');
 }
 export function openSession(id){
   var s=S.sessions.find(function(x){return x.id===id;});
@@ -31,6 +65,7 @@ export function openSession(id){
   document.getElementById('session-detail').style.display='block';
   document.getElementById('sd-title').textContent=s.topicTh+' — '+s.topicEn;
   document.getElementById('sd-meta').textContent=fmtDate(s.date)+' · '+s.location;
+  renderStatusActions(s);
   document.getElementById('sd-vocab').innerHTML=(s.vocab||[]).map(function(v,idx){
     var saved=!!S.cards.find(function(c){return c.thai===v.th;});
     var btnCls='vc-add-btn'+(saved?' vc-saved':'');
@@ -114,7 +149,7 @@ export function saveSession(){
   var th=document.getElementById('sf-th').value.trim();
   var loc=document.getElementById('sf-loc').value.trim();
   if(!en||!th){toast('Please fill in both topic fields');return;}
-  S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[]});
+  S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[],status:'published'});
   save();
   ['sf-en','sf-th','sf-loc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-session-form').classList.remove('open');
