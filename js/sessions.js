@@ -1,4 +1,4 @@
-import { S, saveSessions, saveCards } from './data.js';
+import { S, saveSessionRecord, saveCards } from './data.js';
 import { esc, fmtDate, toast, renderEntryImgs, resizeImageToLimit } from './utils.js';
 
 var currentSessionId=null;
@@ -50,7 +50,7 @@ export function setSessionStatus(status){
   var s=S.sessions.find(function(x){return x.id===currentSessionId;});
   if(!s) return;
   s.status=status;
-  saveSessions();
+  saveSessionRecord(s);
   renderSessions();
   document.getElementById('sessions-list').style.display='none';
   document.getElementById('session-detail').style.display='block';
@@ -149,8 +149,9 @@ export function saveSession(){
   var th=document.getElementById('sf-th').value.trim();
   var loc=document.getElementById('sf-loc').value.trim();
   if(!en||!th){toast('Please fill in both topic fields');return;}
-  S.sessions.unshift({id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[],status:'published'});
-  saveSessions();
+  var newSession={id:'s'+Date.now(),date:new Date().toISOString().slice(0,10),location:loc||'Café class',topicEn:en,topicTh:th,vocab:[],phrases:[],note:'',images:[],status:'published'};
+  S.sessions.unshift(newSession);
+  saveSessionRecord(newSession);
   ['sf-en','sf-th','sf-loc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-session-form').classList.remove('open');
   renderSessions(); toast('Session added! Open it to post the note and photos.');
@@ -192,7 +193,7 @@ export function postSessionUpdate(){
   s.note=document.getElementById('sd-note-edit').value.trim();
   s.images=(s.images||[]).concat(sdImgs);
   sdImgs=[];
-  saveSessions();
+  saveSessionRecord(s);
   openSession(currentSessionId);
   toast('Session posted!');
 }

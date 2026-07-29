@@ -1,4 +1,4 @@
-import { S, saveAssignments } from './data.js';
+import { S, saveAssignmentRecord } from './data.js';
 import { esc, fmtDate, toast } from './utils.js';
 
 var currentAssignmentId=null;
@@ -215,14 +215,15 @@ export function publishAssignment(){
   newAssignStudents.forEach(function(name){
     submissions[name]={status:'assigned',answers:sentences.map(function(){return {answer:'',annotations:[]};}),comment:'',seenReview:false,submittedDate:null,reviewedDate:null};
   });
-  S.assignments.unshift({
+  var newAssignment={
     id:'asg'+Date.now(),type:'translation',
     sentences:sentences.map(function(th){return {th:th};}),
     assignedTo:newAssignStudents.slice(),
     createdDate:new Date().toISOString().slice(0,10),
     submissions:submissions
-  });
-  saveAssignments();
+  };
+  S.assignments.unshift(newAssignment);
+  saveAssignmentRecord(newAssignment);
   document.getElementById('add-assignment-form').classList.remove('open');
   renderAssignmentsTeacher();
   toast('Assignment published!');
@@ -303,7 +304,7 @@ export function sendAssignmentReview(){
   sub.status='reviewed';
   sub.seenReview=false;
   sub.reviewedDate=new Date().toISOString().slice(0,10);
-  saveAssignments();
+  saveAssignmentRecord(asg);
   var student=currentReviewStudent;
   renderTeacherStudentList(asg);
   toast('Feedback sent to '+student+'!');
@@ -363,7 +364,7 @@ export function openAssignmentStudent(id){
     fb.innerHTML='<div class="feedback-box"><div class="feedback-lbl">👩‍🏫 Nita\'s Feedback</div><div class="feedback-txt">'+esc(sub.comment||'(no comment)')+'</div></div>';
     if(!sub.seenReview){
       sub.seenReview=true;
-      saveAssignments();
+      saveAssignmentRecord(asg);
       updateAssignmentBadge();
     }
   } else {
@@ -381,7 +382,7 @@ export function submitAssignment(){
   });
   sub.status='submitted';
   sub.submittedDate=new Date().toISOString().slice(0,10);
-  saveAssignments();
+  saveAssignmentRecord(asg);
   openAssignmentStudent(currentAssignmentId);
   renderAssignmentsStudent();
   toast('Assignment submitted!');
