@@ -144,28 +144,31 @@ export const SEED = {
   ]
 };
 
-export var S = {user:'',role:'student',sessions:[],cards:[],entries:[]};
+export var S = {user:'',role:'student',sessions:[],cards:[],entries:[],assignments:[]};
 
-/* Sessions and journal entries are shared across every account (Kru Nita's
-   session notes and every student's journal submissions all need to be
-   visible to each other) — only vocab cards are private per student. Older
-   per-user session/entry data from before this split is read once as a
-   fallback so nothing already saved gets silently lost. */
+/* Sessions, journal entries, and assignments are shared across every account
+   (Kru Nita's session notes, every student's journal submissions, and
+   assignments all need to be visible to each other) — only vocab cards are
+   private per student. Older per-user session/entry data from before this
+   split is read once as a fallback so nothing already saved gets silently
+   lost. */
 export function loadData(uid, callback){
   var seedSessions = JSON.parse(JSON.stringify(SEED.sessions));
   var seedEntries = JSON.parse(JSON.stringify(SEED.entries));
   Promise.all([
     fbDb.ref('sessions').once('value'),
     fbDb.ref('entries').once('value'),
+    fbDb.ref('assignments').once('value'),
     fbDb.ref('users/' + uid).once('value')
   ]).then(function(snaps){
-    var legacy = snaps[2].val() || {};
+    var legacy = snaps[3].val() || {};
     var sessions = snaps[0].val() || legacy.sessions || seedSessions;
     var ids = sessions.map(function(s){return s.id;});
     seedSessions.forEach(function(s){ if(ids.indexOf(s.id)===-1) sessions.push(s); });
     var entries = snaps[1].val() || legacy.entries || seedEntries;
-    callback({sessions:sessions, entries:entries, cards:legacy.cards||[]});
-  }).catch(function(){ callback({sessions:seedSessions, entries:seedEntries, cards:[]}); });
+    var assignments = snaps[2].val() || [];
+    callback({sessions:sessions, entries:entries, cards:legacy.cards||[], assignments:assignments});
+  }).catch(function(){ callback({sessions:seedSessions, entries:seedEntries, cards:[], assignments:[]}); });
 }
 
 export function saveSessions(){
@@ -173,6 +176,9 @@ export function saveSessions(){
 }
 export function saveEntries(){
   fbDb.ref('entries').set(S.entries);
+}
+export function saveAssignments(){
+  fbDb.ref('assignments').set(S.assignments);
 }
 export function saveCards(){
   var uid = fbAuth.currentUser ? fbAuth.currentUser.uid : null;

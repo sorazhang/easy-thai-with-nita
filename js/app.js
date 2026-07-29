@@ -18,6 +18,13 @@ import {
   closeAnnotPopup, toggleNote, editAnnotation
 } from './annotations.js';
 import { setTheme } from './settings.js';
+import {
+  closeMarkPopup, saveMark, deleteMark, editMark, toggleMarkNote, onSentenceMouseUp,
+  toggleAddAssignment, updateSentenceField, addSentenceField, removeSentenceField,
+  toggleAssignStudent, publishAssignment,
+  openAssignmentTeacher, closeAssignmentDetailTeacher, openStudentSubmission, sendAssignmentReview,
+  closeAssignmentDetailStudent, openAssignmentStudent, submitAssignment
+} from './assignments.js';
 
 /* Apply saved theme immediately so there's no flash */
 (function(){
@@ -26,7 +33,7 @@ import { setTheme } from './settings.js';
 })();
 
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){closeAnnotPopup();closeAddWordModal();}
+  if(e.key==='Escape'){closeAnnotPopup();closeAddWordModal();closeMarkPopup();}
 });
 
 fbAuth.onAuthStateChanged(function(user){
@@ -34,7 +41,7 @@ fbAuth.onAuthStateChanged(function(user){
     var role = user.email === TEACHER_EMAIL ? 'teacher' : 'student';
     var name = user.displayName || user.email.split('@')[0];
     loadData(user.uid, function(d){
-      S.sessions=d.sessions; S.cards=d.cards; S.entries=d.entries;
+      S.sessions=d.sessions; S.cards=d.cards; S.entries=d.entries; S.assignments=d.assignments;
       startApp(name, role);
     });
   } else {
@@ -60,5 +67,10 @@ Object.assign(window, {
   shareJournal, openEntry, removeJImg, viewImg, closeImgViewer, closeEntryRead,
   closeReview, sendReview, openReview, saveAnnotation, deleteAnnotation,
   closeAnnotPopup, toggleNote, editAnnotation,
-  setTheme
+  setTheme,
+  closeMarkPopup, saveMark, deleteMark, editMark, toggleMarkNote, onSentenceMouseUp,
+  toggleAddAssignment, updateSentenceField, addSentenceField, removeSentenceField,
+  toggleAssignStudent, publishAssignment,
+  openAssignmentTeacher, closeAssignmentDetailTeacher, openStudentSubmission, sendAssignmentReview,
+  closeAssignmentDetailStudent, openAssignmentStudent, submitAssignment
 });
