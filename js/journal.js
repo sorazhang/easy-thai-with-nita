@@ -1,4 +1,4 @@
-import { S, saveEntries } from './data.js';
+import { S, saveEntryRecord } from './data.js';
 import { esc, fmtDate, toast, statusPill, renderEntryImgs, resizeImageToLimit } from './utils.js';
 import { renderAnnotatedText } from './annotations.js';
 
@@ -65,15 +65,17 @@ export function saveDraft(){
   var title=document.getElementById('entry-title-in').value.trim();
   var body=document.getElementById('entry-body-in').value.trim();
   if(!title||!body){toast('Please fill in title and body');return;}
-  S.entries.push({id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'draft',annotations:[],nitaComment:''});
-  saveEntries(); closeEditor(); renderJournalList(); toast('Draft saved!');
+  var newEntry={id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'draft',annotations:[],nitaComment:''};
+  S.entries.push(newEntry);
+  saveEntryRecord(newEntry); closeEditor(); renderJournalList(); toast('Draft saved!');
 }
 export function submitJournal(){
   var title=document.getElementById('entry-title-in').value.trim();
   var body=document.getElementById('entry-body-in').value.trim();
   if(!title||!body){toast('Please fill in title and body');return;}
-  S.entries.push({id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'submitted',annotations:[],nitaComment:''});
-  saveEntries(); closeEditor(); renderJournalList(); toast('Submitted to Kru Nita!');
+  var newEntry={id:'j'+Date.now(),author:S.user,authorDisplay:S.user,title:title,body:body,images:jImgs.slice(),date:new Date().toISOString().slice(0,10),status:'submitted',annotations:[],nitaComment:''};
+  S.entries.push(newEntry);
+  saveEntryRecord(newEntry); closeEditor(); renderJournalList(); toast('Submitted to Kru Nita!');
 }
 var currentJournalId=null;
 export function openEntry(id){

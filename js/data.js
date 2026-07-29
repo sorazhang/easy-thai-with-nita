@@ -146,12 +146,34 @@ export const SEED = {
 
 export var S = {user:'',role:'student',sessions:[],cards:[],entries:[],assignments:[]};
 
+function toKeyedObject(arr){
+  var obj={};
+  (arr||[]).forEach(function(x){ obj[x.id]=x; });
+  return obj;
+}
+function toArray(obj){
+  return obj?Object.keys(obj).map(function(k){return obj[k];}):[];
+}
+
 /* Sessions, journal entries, and assignments are shared across every account
    (Kru Nita's session notes, every student's journal submissions, and
    assignments all need to be visible to each other) — only vocab cards are
-   private per student. Older per-user session/entry data from before this
-   split is read once as a fallback so nothing already saved gets silently
-   lost. */
+   private per student, kept under users/{uid}/cards.
+
+   Each shared collection is stored in Firebase keyed by record id
+   (sessions/{id}, entries/{id}, assignments/{id}) rather than as one big
+   array, so a single student's or teacher's write only ever touches their
+   own record -- the array-blob shape this replaced would have required
+   write access to the WHOLE collection for any single edit, which is
+   incompatible with per-record Firebase security rules. In memory
+   everything is still a plain array (S.sessions/S.entries/S.assignments),
+   converted at the read/write boundary here so the rest of the app is
+   unaffected.
+
+   Older per-user data, and the collection's older shared-array shape, are
+   both read once as a fallback so nothing already saved gets silently
+   lost; an old array is rewritten into the keyed shape immediately so
+   every write after this one lands correctly. */
 export function loadData(uid, callback){
   var seedSessions = JSON.parse(JSON.stringify(SEED.sessions));
   var seedEntries = JSON.parse(JSON.stringify(SEED.entries));
@@ -162,23 +184,48 @@ export function loadData(uid, callback){
     fbDb.ref('users/' + uid).once('value')
   ]).then(function(snaps){
     var legacy = snaps[3].val() || {};
-    var sessions = snaps[0].val() || legacy.sessions || seedSessions;
+
+    var sessionsRaw = snaps[0].val();
+    var sessions;
+    if(Array.isArray(sessionsRaw)){
+      sessions = sessionsRaw;
+      fbDb.ref('sessions').set(toKeyedObject(sessions));
+    } else {
+      sessions = sessionsRaw ? toArray(sessionsRaw) : (legacy.sessions || seedSessions);
+    }
     var ids = sessions.map(function(s){return s.id;});
     seedSessions.forEach(function(s){ if(ids.indexOf(s.id)===-1) sessions.push(s); });
-    var entries = snaps[1].val() || legacy.entries || seedEntries;
-    var assignments = snaps[2].val() || [];
+
+    var entriesRaw = snaps[1].val();
+    var entries;
+    if(Array.isArray(entriesRaw)){
+      entries = entriesRaw;
+      fbDb.ref('entries').set(toKeyedObject(entries));
+    } else {
+      entries = entriesRaw ? toArray(entriesRaw) : (legacy.entries || seedEntries);
+    }
+
+    var assignmentsRaw = snaps[2].val();
+    var assignments;
+    if(Array.isArray(assignmentsRaw)){
+      assignments = assignmentsRaw;
+      fbDb.ref('assignments').set(toKeyedObject(assignments));
+    } else {
+      assignments = assignmentsRaw ? toArray(assignmentsRaw) : [];
+    }
+
     callback({sessions:sessions, entries:entries, cards:legacy.cards||[], assignments:assignments});
   }).catch(function(){ callback({sessions:seedSessions, entries:seedEntries, cards:[], assignments:[]}); });
 }
 
-export function saveSessions(){
-  fbDb.ref('sessions').set(S.sessions);
+export function saveSessionRecord(session){
+  fbDb.ref('sessions/' + session.id).set(session);
 }
-export function saveEntries(){
-  fbDb.ref('entries').set(S.entries);
+export function saveEntryRecord(entry){
+  fbDb.ref('entries/' + entry.id).set(entry);
 }
-export function saveAssignments(){
-  fbDb.ref('assignments').set(S.assignments);
+export function saveAssignmentRecord(assignment){
+  fbDb.ref('assignments/' + assignment.id).set(assignment);
 }
 export function saveCards(){
   var uid = fbAuth.currentUser ? fbAuth.currentUser.uid : null;
