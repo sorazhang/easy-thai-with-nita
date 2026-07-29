@@ -40,12 +40,13 @@ fbAuth.onAuthStateChanged(function(user){
   if(user){
     var role = user.email === TEACHER_EMAIL ? 'teacher' : 'student';
     var name = user.displayName || user.email.split('@')[0];
+    S.uid=user.uid;
     loadData(user.uid, function(d){
       S.sessions=d.sessions; S.cards=d.cards; S.entries=d.entries; S.assignments=d.assignments;
       startApp(name, role);
     });
   } else {
-    S.user=null; S.role=null;
+    S.user=null; S.role=null; S.uid=null;
     document.getElementById('app').classList.remove('visible');
     document.getElementById('welcome').classList.remove('out');
     document.getElementById('wl-email').value='';

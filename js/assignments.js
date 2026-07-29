@@ -1,17 +1,24 @@
-import { S, saveAssignmentRecord } from './data.js';
+import { S, saveAssignmentRecord, saveSubmissionRecord } from './data.js';
 import { esc, fmtDate, toast } from './utils.js';
 
 var currentAssignmentId=null;
-var currentReviewStudent=null;
+var currentReviewUid=null;
 var newSentences=[''];
 var newAssignStudents=[];
 var markCtx={sentenceIdx:null,editingId:null,selStart:0,selEnd:0,selText:''};
 
-function knownStudentNames(){
-  var names={};
-  S.entries.forEach(function(e){ if(e.author) names[e.author]=true; });
-  S.assignments.forEach(function(a){ (a.assignedTo||[]).forEach(function(n){ names[n]=true; }); });
-  return Object.keys(names).sort();
+/* {uid,name} pairs for every student we've seen -- either from a journal
+   entry they authored, or a previous assignment they were given. There's
+   no full user roster in this app, so this is the closest thing; a
+   student only shows up here once they've logged in and done one of
+   those two things at least once. */
+function knownStudents(){
+  var map={};
+  S.entries.forEach(function(e){ if(e.uid) map[e.uid]=e.authorDisplay||e.author; });
+  S.assignments.forEach(function(a){
+    Object.keys(a.submissions||{}).forEach(function(uid){ map[uid]=a.submissions[uid].studentName; });
+  });
+  return Object.keys(map).map(function(uid){ return {uid:uid,name:map[uid]}; }).sort(function(a,b){return a.name<b.name?-1:1;});
 }
 function asgStatusPill(status){
   if(status==='reviewed') return '<span class="pill pill-v">✓ Reviewed</span>';
@@ -21,7 +28,7 @@ function asgStatusPill(status){
 export function unseenReviewedCount(){
   var n=0;
   S.assignments.forEach(function(a){
-    var sub=a.submissions[S.user];
+    var sub=a.submissions[S.uid];
     if(sub&&sub.status==='reviewed'&&!sub.seenReview) n++;
   });
   return n;
@@ -94,7 +101,7 @@ export function onSentenceMouseUp(idx){
 }
 function currentAnswers(){
   var asg=S.assignments.find(function(x){return x.id===currentAssignmentId;});
-  var sub=asg&&asg.submissions[S.user];
+  var sub=asg&&asg.submissions[S.uid];
   return sub?sub.answers:null;
 }
 function openMarkPopup(rect){
@@ -194,31 +201,32 @@ export function addSentenceField(){ newSentences.push(''); renderSentenceFields(
 export function removeSentenceField(i){ newSentences.splice(i,1); renderSentenceFields(); }
 function renderStudentPicker(){
   var el=document.getElementById('asg-student-picker');
-  var names=knownStudentNames();
-  if(!names.length){ el.innerHTML='<div class="empty-msg" style="padding:.5rem 0">No students yet — they need to log in or submit a journal entry first.</div>'; return; }
-  el.innerHTML=names.map(function(n){
-    var checked=newAssignStudents.indexOf(n)!==-1;
+  var students=knownStudents();
+  if(!students.length){ el.innerHTML='<div class="empty-msg" style="padding:.5rem 0">No students yet — they need to log in and submit a journal entry first.</div>'; return; }
+  el.innerHTML=students.map(function(st){
+    var checked=newAssignStudents.indexOf(st.uid)!==-1;
     return '<label style="display:flex;align-items:center;gap:.5rem;padding:.35rem 0">'
-      +'<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleAssignStudent(\''+n+'\')"> '+esc(n)
+      +'<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleAssignStudent(\''+st.uid+'\')"> '+esc(st.name)
       +'</label>';
   }).join('');
 }
-export function toggleAssignStudent(name){
-  var i=newAssignStudents.indexOf(name);
-  if(i===-1) newAssignStudents.push(name); else newAssignStudents.splice(i,1);
+export function toggleAssignStudent(uid){
+  var i=newAssignStudents.indexOf(uid);
+  if(i===-1) newAssignStudents.push(uid); else newAssignStudents.splice(i,1);
 }
 export function publishAssignment(){
   var sentences=newSentences.map(function(s){return s.trim();}).filter(Boolean);
   if(!sentences.length){ toast('Add at least one sentence'); return; }
   if(!newAssignStudents.length){ toast('Select at least one student'); return; }
+  var students=knownStudents();
   var submissions={};
-  newAssignStudents.forEach(function(name){
-    submissions[name]={status:'assigned',answers:sentences.map(function(){return {answer:'',annotations:[]};}),comment:'',seenReview:false,submittedDate:null,reviewedDate:null};
+  newAssignStudents.forEach(function(uid){
+    var st=students.find(function(s){return s.uid===uid;});
+    submissions[uid]={studentName:st?st.name:'Student',status:'assigned',answers:sentences.map(function(){return {answer:'',annotations:[]};}),comment:'',seenReview:false,submittedDate:null,reviewedDate:null};
   });
   var newAssignment={
     id:'asg'+Date.now(),type:'translation',
     sentences:sentences.map(function(th){return {th:th};}),
-    assignedTo:newAssignStudents.slice(),
     createdDate:new Date().toISOString().slice(0,10),
     submissions:submissions
   };
@@ -236,9 +244,9 @@ export function renderAssignmentsTeacher(){
   if(!el) return;
   if(!S.assignments.length){ el.innerHTML='<div class="empty-msg">No assignments yet.</div>'; return; }
   el.innerHTML=S.assignments.slice().sort(function(a,b){return a.createdDate<b.createdDate?1:-1;}).map(function(a){
-    var subs=(a.assignedTo||[]).map(function(name){
-      var s=a.submissions[name]||{status:'assigned'};
-      return esc(name)+' '+asgStatusPill(s.status);
+    var subs=Object.keys(a.submissions||{}).map(function(uid){
+      var s=a.submissions[uid];
+      return esc(s.studentName)+' '+asgStatusPill(s.status);
     }).join(' &nbsp; ');
     return '<div class="journal-card" onclick="openAssignmentTeacher(\''+a.id+'\')">'
       +'<div class="jc-title">'+a.sentences.length+' sentence'+(a.sentences.length>1?'s':'')+' — Translation</div>'
@@ -251,7 +259,7 @@ export function openAssignmentTeacher(id){
   var asg=S.assignments.find(function(x){return x.id===id;});
   if(!asg) return;
   currentAssignmentId=id;
-  currentReviewStudent=null;
+  currentReviewUid=null;
   document.getElementById('assignment-list-area-teacher').style.display='none';
   document.getElementById('assignment-detail-teacher').style.display='block';
   renderTeacherStudentList(asg);
@@ -262,28 +270,28 @@ function renderTeacherStudentList(asg){
   document.getElementById('asg-t-sentences-ref').innerHTML=asg.sentences.map(function(s,i){
     return '<div class="phrase-item"><div class="ph-th">'+(i+1)+'. '+esc(s.th)+'</div></div>';
   }).join('');
-  document.getElementById('asg-t-students').innerHTML=(asg.assignedTo||[]).map(function(name){
-    var sub=asg.submissions[name]||{status:'assigned'};
+  document.getElementById('asg-t-students').innerHTML=Object.keys(asg.submissions||{}).map(function(uid){
+    var sub=asg.submissions[uid];
     var canReview=sub.status==='submitted'||sub.status==='reviewed';
-    return '<div class="session-card" '+(canReview?'onclick="openStudentSubmission(\''+name+'\')"':'style="opacity:.55;cursor:default"')+'>'
-      +'<div class="sc-topic">'+esc(name)+'</div>'
+    return '<div class="session-card" '+(canReview?'onclick="openStudentSubmission(\''+uid+'\')"':'style="opacity:.55;cursor:default"')+'>'
+      +'<div class="sc-topic">'+esc(sub.studentName)+'</div>'
       +'<div class="sc-pills">'+asgStatusPill(sub.status)+(canReview?'':' <span class="pill pill-m">waiting for submission</span>')+'</div>'
       +'</div>';
   }).join('');
   document.getElementById('asg-t-review-panel').style.display='none';
 }
 export function closeAssignmentDetailTeacher(){
-  currentAssignmentId=null; currentReviewStudent=null;
+  currentAssignmentId=null; currentReviewUid=null;
   var d=document.getElementById('assignment-detail-teacher'); if(d) d.style.display='none';
   var l=document.getElementById('assignment-list-area-teacher'); if(l) l.style.display='';
 }
-export function openStudentSubmission(name){
+export function openStudentSubmission(uid){
   var asg=S.assignments.find(function(x){return x.id===currentAssignmentId;});
   if(!asg) return;
-  var sub=asg.submissions[name];
+  var sub=asg.submissions[uid];
   if(!sub) return;
-  currentReviewStudent=name;
-  document.getElementById('asg-t-review-title').textContent=name+"'s Answers";
+  currentReviewUid=uid;
+  document.getElementById('asg-t-review-title').textContent=sub.studentName+"'s Answers";
   document.getElementById('asg-t-review-body').innerHTML=asg.sentences.map(function(s,i){
     var ans=sub.answers[i]||{answer:'',annotations:[]};
     var marks=(ans.annotations||[]).map(function(m){ m.sentenceIdx=i; return m; });
@@ -297,29 +305,29 @@ export function openStudentSubmission(name){
 }
 export function sendAssignmentReview(){
   var asg=S.assignments.find(function(x){return x.id===currentAssignmentId;});
-  if(!asg||!currentReviewStudent) return;
-  var sub=asg.submissions[currentReviewStudent];
+  if(!asg||!currentReviewUid) return;
+  var sub=asg.submissions[currentReviewUid];
   if(!sub) return;
   sub.comment=document.getElementById('asg-t-comment').value.trim();
   sub.status='reviewed';
   sub.seenReview=false;
   sub.reviewedDate=new Date().toISOString().slice(0,10);
-  saveAssignmentRecord(asg);
-  var student=currentReviewStudent;
+  saveSubmissionRecord(asg.id,currentReviewUid,sub);
+  var name=sub.studentName;
   renderTeacherStudentList(asg);
-  toast('Feedback sent to '+student+'!');
+  toast('Feedback sent to '+name+'!');
 }
 
 /* ── Student: queue + open + submit ── */
 export function renderAssignmentsStudent(){
   closeAssignmentDetailStudent();
-  var mine=S.assignments.filter(function(a){return (a.assignedTo||[]).indexOf(S.user)!==-1;});
+  var mine=S.assignments.filter(function(a){return a.submissions&&a.submissions[S.uid];});
   var el=document.getElementById('assignment-list-student');
   if(el){
     if(!mine.length){ el.innerHTML='<div class="empty-msg">No assignments yet.</div>'; }
     else {
       el.innerHTML=mine.slice().sort(function(a,b){return a.createdDate<b.createdDate?1:-1;}).map(function(a){
-        var sub=a.submissions[S.user]||{status:'assigned'};
+        var sub=a.submissions[S.uid];
         return '<div class="journal-card" onclick="openAssignmentStudent(\''+a.id+'\')">'
           +'<div class="jc-title">'+a.sentences.length+' sentence'+(a.sentences.length>1?'s':'')+' — Translation</div>'
           +'<div class="jc-preview">'+esc(a.sentences[0].th)+(a.sentences.length>1?'…':'')+'</div>'
@@ -338,7 +346,7 @@ export function closeAssignmentDetailStudent(){
 export function openAssignmentStudent(id){
   var asg=S.assignments.find(function(x){return x.id===id;});
   if(!asg) return;
-  var sub=asg.submissions[S.user];
+  var sub=asg.submissions[S.uid];
   if(!sub) return;
   currentAssignmentId=id;
   document.getElementById('assignment-list-area').style.display='none';
@@ -364,7 +372,7 @@ export function openAssignmentStudent(id){
     fb.innerHTML='<div class="feedback-box"><div class="feedback-lbl">👩‍🏫 Nita\'s Feedback</div><div class="feedback-txt">'+esc(sub.comment||'(no comment)')+'</div></div>';
     if(!sub.seenReview){
       sub.seenReview=true;
-      saveAssignmentRecord(asg);
+      saveSubmissionRecord(asg.id,S.uid,sub);
       updateAssignmentBadge();
     }
   } else {
@@ -374,7 +382,7 @@ export function openAssignmentStudent(id){
 export function submitAssignment(){
   var asg=S.assignments.find(function(x){return x.id===currentAssignmentId;});
   if(!asg) return;
-  var sub=asg.submissions[S.user];
+  var sub=asg.submissions[S.uid];
   if(!sub) return;
   asg.sentences.forEach(function(s,i){
     var ta=document.getElementById('asg-answer-'+i);
@@ -382,7 +390,7 @@ export function submitAssignment(){
   });
   sub.status='submitted';
   sub.submittedDate=new Date().toISOString().slice(0,10);
-  saveAssignmentRecord(asg);
+  saveSubmissionRecord(asg.id,S.uid,sub);
   openAssignmentStudent(currentAssignmentId);
   renderAssignmentsStudent();
   toast('Assignment submitted!');

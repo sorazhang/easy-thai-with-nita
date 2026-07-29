@@ -144,7 +144,7 @@ export const SEED = {
   ]
 };
 
-export var S = {user:'',role:'student',sessions:[],cards:[],entries:[],assignments:[]};
+export var S = {user:'',role:'student',uid:null,sessions:[],cards:[],entries:[],assignments:[]};
 
 function toKeyedObject(arr){
   var obj={};
@@ -226,6 +226,15 @@ export function saveEntryRecord(entry){
 }
 export function saveAssignmentRecord(assignment){
   fbDb.ref('assignments/' + assignment.id).set(assignment);
+}
+/* A student's own submission is saved to its own path so submitting or
+   marking feedback seen only ever touches that one student's data, never
+   the whole assignment record (which holds every other student's
+   submissions too) -- required for a security rule to let a student
+   write their own submission without needing write access to everyone
+   else's. */
+export function saveSubmissionRecord(assignmentId,uid,submission){
+  fbDb.ref('assignments/' + assignmentId + '/submissions/' + uid).set(submission);
 }
 export function saveCards(){
   var uid = fbAuth.currentUser ? fbAuth.currentUser.uid : null;
