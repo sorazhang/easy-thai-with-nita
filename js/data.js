@@ -155,35 +155,92 @@ function toArray(obj){
   return obj?Object.keys(obj).map(function(k){return obj[k];}):[];
 }
 
-/* Sessions, journal entries, and assignments are shared across every account
-   (Kru Nita's session notes, every student's journal submissions, and
-   assignments all need to be visible to each other) — only vocab cards are
-   private per student, kept under users/{uid}/cards.
+function flattenUidKeyed(obj){
+  var result=[];
+  Object.keys(obj||{}).forEach(function(uid){
+    Object.keys(obj[uid]||{}).forEach(function(itemId){
+      var item=obj[uid][itemId];
+      item.uid=uid;
+      result.push(item);
+    });
+  });
+  return result;
+}
+function looksLikeEntry(x){ return !!x && typeof x==='object' && typeof x.body==='string'; }
+/* Migrates entries from the older flat shape (one entry per id, straight
+   under `entries`, from before per-student read isolation existed) into
+   entries/{uid}/{entryId}. Only ever called from the teacher's load, since
+   only she has write access to the `entries` root -- see database.rules.json. */
+function migrateEntriesIfNeeded(entriesRaw){
+  if(!entriesRaw) return [];
+  var keys=Object.keys(entriesRaw);
+  var isOldFlatShape=Array.isArray(entriesRaw)||(keys.length&&looksLikeEntry(entriesRaw[keys[0]]));
+  if(!isOldFlatShape) return flattenUidKeyed(entriesRaw);
+  var flat=Array.isArray(entriesRaw)?entriesRaw:toArray(entriesRaw);
+  var byUid={};
+  flat.forEach(function(e){
+    var owner=e.uid||'_unclaimed';
+    byUid[owner]=byUid[owner]||{};
+    byUid[owner][e.id]=e;
+  });
+  fbDb.ref('entries').set(byUid);
+  return flattenUidKeyed(byUid);
+}
+/* Migrates assignments from the older shape where each assignment carried
+   every assigned student's submission nested inside it, into the separate
+   assignmentSubmissions/{uid}/{assignmentId} collection -- needed for the
+   same per-student read isolation. Returns null when nothing needed
+   migrating, so the caller knows to use the normal (already-separate)
+   read path instead. */
+function migrateAssignmentsIfNeeded(assignmentsRaw){
+  var assignments=assignmentsRaw?toArray(assignmentsRaw):[];
+  var needsMigration=assignments.some(function(a){ return a.submissions; });
+  if(!needsMigration) return null;
+  var subsByUid={};
+  assignments.forEach(function(a){
+    Object.keys(a.submissions||{}).forEach(function(uid){
+      subsByUid[uid]=subsByUid[uid]||{};
+      subsByUid[uid][a.id]=a.submissions[uid];
+    });
+    delete a.submissions;
+  });
+  fbDb.ref('assignments').set(toKeyedObject(assignments));
+  fbDb.ref('assignmentSubmissions').set(subsByUid);
+  return {assignments:assignments,subsByUid:subsByUid};
+}
 
-   Each shared collection is stored in Firebase keyed by record id
-   (sessions/{id}, entries/{id}, assignments/{id}) rather than as one big
-   array, so a single student's or teacher's write only ever touches their
-   own record -- the array-blob shape this replaced would have required
-   write access to the WHOLE collection for any single edit, which is
-   incompatible with per-record Firebase security rules. In memory
-   everything is still a plain array (S.sessions/S.entries/S.assignments),
-   converted at the read/write boundary here so the rest of the app is
-   unaffected.
+/* Sessions are shared and readable by everyone (there's nothing private in
+   a class session). Journal entries and assignment submissions are
+   personal, so each is stored per-student under its own uid
+   (entries/{uid}/{entryId}, assignmentSubmissions/{uid}/{assignmentId}) —
+   a student's read request can then be scoped to just their own subtree,
+   so another student's data is never even sent to their browser (not just
+   hidden by the UI). The teacher's load instead reads each collection's
+   root to see everyone's. Vocab cards stay private per student under
+   users/{uid}/cards, unchanged.
 
-   Older per-user data, and the collection's older shared-array shape, are
-   both read once as a fallback so nothing already saved gets silently
-   lost; an old array is rewritten into the keyed shape immediately so
-   every write after this one lands correctly. */
-export function loadData(uid, callback){
+   Assignment CONTENT (sentences etc.) is stored separately from
+   submissions, at assignments/{id} — readable by anyone, since it holds
+   no personal data — and merged back into each assignment's in-memory
+   .submissions here so the rest of the app doesn't need to know about the
+   split.
+
+   Older shapes (the shared-array collections, and assignments with
+   submissions nested inline) are migrated automatically the first time
+   the teacher logs in after this change ships; a student logging in
+   before that migration runs will temporarily see their own older data as
+   missing, until the teacher's next login fixes it. */
+export function loadData(uid, role, callback){
   var seedSessions = JSON.parse(JSON.stringify(SEED.sessions));
-  var seedEntries = JSON.parse(JSON.stringify(SEED.entries));
+  var isTeacher = role==='teacher';
   Promise.all([
     fbDb.ref('sessions').once('value'),
-    fbDb.ref('entries').once('value'),
+    (isTeacher ? fbDb.ref('entries') : fbDb.ref('entries/' + uid)).once('value'),
     fbDb.ref('assignments').once('value'),
+    (isTeacher ? fbDb.ref('assignmentSubmissions') : fbDb.ref('assignmentSubmissions/' + uid)).once('value'),
     fbDb.ref('users/' + uid).once('value')
   ]).then(function(snaps){
-    var legacy = snaps[3].val() || {};
+    var legacy = snaps[4].val() || {};
 
     var sessionsRaw = snaps[0].val();
     var sessions;
@@ -198,43 +255,60 @@ export function loadData(uid, callback){
 
     var entriesRaw = snaps[1].val();
     var entries;
-    if(Array.isArray(entriesRaw)){
-      entries = entriesRaw;
-      fbDb.ref('entries').set(toKeyedObject(entries));
+    if(isTeacher){
+      entries = migrateEntriesIfNeeded(entriesRaw);
     } else {
-      entries = entriesRaw ? toArray(entriesRaw) : (legacy.entries || seedEntries);
+      entries = entriesRaw ? Object.keys(entriesRaw).map(function(id){ var e=entriesRaw[id]; e.uid=uid; return e; }) : (legacy.entries || []);
     }
 
     var assignmentsRaw = snaps[2].val();
-    var assignments;
-    if(Array.isArray(assignmentsRaw)){
-      assignments = assignmentsRaw;
-      fbDb.ref('assignments').set(toKeyedObject(assignments));
+    var migrated = migrateAssignmentsIfNeeded(assignmentsRaw);
+    var assignments, subsRaw;
+    if(migrated){
+      assignments = migrated.assignments;
+      subsRaw = isTeacher ? migrated.subsByUid : (migrated.subsByUid[uid] || {});
     } else {
       assignments = assignmentsRaw ? toArray(assignmentsRaw) : [];
+      subsRaw = snaps[3].val() || {};
+    }
+    if(isTeacher){
+      var byAssignment={};
+      Object.keys(subsRaw).forEach(function(u){
+        Object.keys(subsRaw[u]||{}).forEach(function(aid){
+          byAssignment[aid]=byAssignment[aid]||{};
+          byAssignment[aid][u]=subsRaw[u][aid];
+        });
+      });
+      assignments.forEach(function(a){ a.submissions=byAssignment[a.id]||{}; });
+    } else {
+      assignments.forEach(function(a){
+        a.submissions={};
+        if(subsRaw[a.id]) a.submissions[uid]=subsRaw[a.id];
+      });
     }
 
     callback({sessions:sessions, entries:entries, cards:legacy.cards||[], assignments:assignments});
-  }).catch(function(){ callback({sessions:seedSessions, entries:seedEntries, cards:[], assignments:[]}); });
+  }).catch(function(){ callback({sessions:seedSessions, entries:[], cards:[], assignments:[]}); });
 }
 
 export function saveSessionRecord(session){
   fbDb.ref('sessions/' + session.id).set(session);
 }
 export function saveEntryRecord(entry){
-  fbDb.ref('entries/' + entry.id).set(entry);
+  fbDb.ref('entries/' + entry.uid + '/' + entry.id).set(entry);
 }
 export function saveAssignmentRecord(assignment){
-  fbDb.ref('assignments/' + assignment.id).set(assignment);
+  var content={};
+  Object.keys(assignment).forEach(function(k){ if(k!=='submissions') content[k]=assignment[k]; });
+  fbDb.ref('assignments/' + assignment.id).set(content);
 }
 /* A student's own submission is saved to its own path so submitting or
    marking feedback seen only ever touches that one student's data, never
-   the whole assignment record (which holds every other student's
-   submissions too) -- required for a security rule to let a student
-   write their own submission without needing write access to everyone
-   else's. */
+   any other student's -- required for the security rule that lets a
+   student write (and read) their own submission without needing access
+   to everyone else's. */
 export function saveSubmissionRecord(assignmentId,uid,submission){
-  fbDb.ref('assignments/' + assignmentId + '/submissions/' + uid).set(submission);
+  fbDb.ref('assignmentSubmissions/' + uid + '/' + assignmentId).set(submission);
 }
 export function saveCards(){
   var uid = fbAuth.currentUser ? fbAuth.currentUser.uid : null;

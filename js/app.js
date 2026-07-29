@@ -41,7 +41,7 @@ fbAuth.onAuthStateChanged(function(user){
     var role = user.email === TEACHER_EMAIL ? 'teacher' : 'student';
     var name = user.displayName || user.email.split('@')[0];
     S.uid=user.uid;
-    loadData(user.uid, function(d){
+    loadData(user.uid, role, function(d){
       S.sessions=d.sessions; S.cards=d.cards; S.entries=d.entries; S.assignments=d.assignments;
       startApp(name, role);
     });

@@ -21,22 +21,28 @@ GitHub repo: https://github.com/sorazhang/easy-thai-with-nita
 
 ## Data structure (Realtime Database)
 ```
-sessions/{sessionId}       ← shared: Kru Nita's class sessions (SEED data merged in), writable only by TEACHER_EMAIL
-entries/{entryId}          ← shared: every student's journal entries, tagged with uid + author name;
-                              creatable by the entry's own uid, editable only by TEACHER_EMAIL (for annotations/review)
-assignments/{assignmentId}
-  submissions/{uid}        ← writable by that uid (their own answers) or TEACHER_EMAIL (review/comment)
+sessions/{sessionId}                 ← shared, readable by anyone logged in (no personal data), writable only by TEACHER_EMAIL
+entries/{uid}/{entryId}               ← a student's own journal entries; readable/creatable only by that uid, otherwise
+                                         editable only by TEACHER_EMAIL (annotations/review) — the teacher's app load
+                                         reads the whole entries/ root, a student's load reads only entries/{their uid}
+assignments/{assignmentId}            ← shared CONTENT only (sentences etc, no personal data), writable only by TEACHER_EMAIL
+assignmentSubmissions/{uid}/{assignmentId}
+                                       ← one student's answers/annotations for one assignment; readable/writable by
+                                         that uid or TEACHER_EMAIL — merged back onto its assignment's .submissions
+                                         in memory by loadData() so the rest of the app doesn't need to know about the split
 users/{uid}/
-  cards: []                ← student's personal vocab cards (private, owner-only)
-  sessions/entries/cards   ← legacy per-user shape from before the shared-collection split; read once as a
-                              migration fallback, still owner-only
+  cards: []                          ← student's personal vocab cards (private, owner-only)
+  sessions/entries/cards             ← legacy per-user shape from before the shared-collection split; read once as a
+                                         migration fallback, still owner-only
 ```
-Each shared collection is stored keyed by record id, not as one array — a single edit only ever touches its
-own record, which is what makes the per-record security rules above possible.
+`entries` and `assignmentSubmissions` are split per-uid specifically so a student's read request can be scoped to
+just their own subtree — another student's journal or assignment answers are never sent to their browser at all,
+not merely hidden by the UI. `sessions`/`assignments` hold no personal data, so they stay readable by anyone
+logged in. See `database.rules.json` for the actual rules.
 
-## Key constants in index.html
-- `TEACHER_EMAIL` — set this to Kru Nita's email so she gets the teacher role on login
-- `SEED` — hardcoded class session data (Nita's lessons, visible to all users)
+## Key constants
+- `TEACHER_EMAIL` (in `js/firebase.js`) — set to Kru Nita's email so she gets the teacher role on login
+- `SEED` (in `js/data.js`) — hardcoded class session data (Nita's lessons, visible to all users)
 
 ## Roles
 - **Student**: default role for any logged-in user

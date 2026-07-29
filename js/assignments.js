@@ -232,6 +232,9 @@ export function publishAssignment(){
   };
   S.assignments.unshift(newAssignment);
   saveAssignmentRecord(newAssignment);
+  Object.keys(submissions).forEach(function(uid){
+    saveSubmissionRecord(newAssignment.id,uid,submissions[uid]);
+  });
   document.getElementById('add-assignment-form').classList.remove('open');
   renderAssignmentsTeacher();
   toast('Assignment published!');
