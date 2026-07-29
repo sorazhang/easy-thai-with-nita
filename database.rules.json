@@ -9,21 +9,28 @@
     },
 
     "entries": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email === 'easythaiwithnita@gmail.com'",
       ".write": "auth != null && auth.token.email === 'easythaiwithnita@gmail.com'",
-      "$entryId": {
-        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || auth.token.email === 'easythaiwithnita@gmail.com')"
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || auth.token.email === 'easythaiwithnita@gmail.com')",
+        "$entryId": {
+          ".write": "auth != null && (($uid === auth.uid && !data.exists()) || auth.token.email === 'easythaiwithnita@gmail.com')"
+        }
       }
     },
 
     "assignments": {
       ".read": "auth != null",
+      ".write": "auth != null && auth.token.email === 'easythaiwithnita@gmail.com'"
+    },
+
+    "assignmentSubmissions": {
+      ".read": "auth != null && auth.token.email === 'easythaiwithnita@gmail.com'",
       ".write": "auth != null && auth.token.email === 'easythaiwithnita@gmail.com'",
-      "$assignmentId": {
-        "submissions": {
-          "$uid": {
-            ".write": "auth != null && ($uid === auth.uid || auth.token.email === 'easythaiwithnita@gmail.com')"
-          }
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || auth.token.email === 'easythaiwithnita@gmail.com')",
+        "$assignmentId": {
+          ".write": "auth != null && ($uid === auth.uid || auth.token.email === 'easythaiwithnita@gmail.com')"
         }
       }
     },
