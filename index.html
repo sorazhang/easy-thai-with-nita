@@ -222,6 +222,9 @@
     <div class="sn-item" id="sn-journal" onclick="navTo('journal');closeNav()">
       <span class="sn-icon">📓</span><span id="sn-j-lbl">My Journal</span>
     </div>
+    <div class="sn-item" id="sn-assignments" onclick="navTo('assignments');closeNav()">
+      <span class="sn-icon">📝</span><span>Assignments</span><span class="nav-badge" id="sn-assign-badge" style="display:none"></span>
+    </div>
   </div>
   <div class="sn-footer">
     <div class="sn-item" id="sn-settings" onclick="navTo('settings');closeNav()">
@@ -367,6 +370,59 @@
         </div>
       </div>
     </div>
+    <div id="view-assignments" class="view">
+      <div id="student-assignments">
+        <div id="assignment-detail" style="display:none">
+          <button class="back-btn" onclick="closeAssignmentDetailStudent()">← Back</button>
+          <div class="detail-title">✍️ Sentence Translation</div>
+          <div class="detail-meta" id="asg-meta"></div>
+          <div class="review-hint">Select a word to add your own note, then write your English translation below.</div>
+          <div id="asg-sentences"></div>
+          <div id="asg-feedback"></div>
+          <button class="btn-full" id="asg-submit-btn" onclick="submitAssignment()">Submit to Nita</button>
+        </div>
+        <div id="assignment-list-area">
+          <div class="sec-head"><div class="sec-title">📝 My Assignments</div></div>
+          <div id="assignment-list-student"></div>
+        </div>
+      </div>
+      <div id="teacher-assignments" style="display:none">
+        <div id="assignment-detail-teacher" style="display:none">
+          <button class="back-btn" onclick="closeAssignmentDetailTeacher()">← Back</button>
+          <div class="detail-title" id="asg-t-title"></div>
+          <div class="detail-meta" id="asg-t-meta"></div>
+          <div class="section-label">Sentences</div>
+          <div id="asg-t-sentences-ref"></div>
+          <div class="section-label" style="margin-top:1rem">Students</div>
+          <div id="asg-t-students"></div>
+          <div id="asg-t-review-panel" style="display:none">
+            <div class="section-label" style="margin-top:1rem" id="asg-t-review-title"></div>
+            <div id="asg-t-review-body"></div>
+            <textarea class="overall-ta" id="asg-t-comment" placeholder="Comment for the student…"></textarea>
+            <button class="btn-full" onclick="sendAssignmentReview()">Send Feedback &amp; Mark Reviewed</button>
+          </div>
+        </div>
+        <div id="assignment-list-area-teacher">
+          <div class="sec-head">
+            <div class="sec-title">📝 Assignments</div>
+            <button class="btn-sm pri" onclick="toggleAddAssignment()">+ New</button>
+          </div>
+          <div class="add-form" id="add-assignment-form">
+            <div class="form-row"><label>Type</label><div style="color:var(--muted);font-size:.85rem">Sentence Translation (Thai → English)</div></div>
+            <div class="form-row"><label>Sentences</label></div>
+            <div id="asg-sentences-list"></div>
+            <button class="btn-sm" onclick="addSentenceField()">+ Add Sentence</button>
+            <div class="form-row" style="margin-top:.8rem"><label>Assign to</label></div>
+            <div id="asg-student-picker"></div>
+            <div class="form-actions">
+              <button class="btn-sm" onclick="toggleAddAssignment()">Cancel</button>
+              <button class="btn-sm pri" onclick="publishAssignment()">Publish Assignment</button>
+            </div>
+          </div>
+          <div id="assignment-list-teacher"></div>
+        </div>
+      </div>
+    </div>
     <div id="view-settings" class="view">
       <div class="sec-head"><div class="sec-title">⚙️ Account Settings</div></div>
 
@@ -441,6 +497,16 @@
     <button class="pop-save" onclick="saveAnnotation()">Save</button>
     <button class="pop-del" id="pop-del" onclick="deleteAnnotation()">Delete</button>
     <button class="pop-can" onclick="closeAnnotPopup()">Cancel</button>
+  </div>
+</div>
+
+<div id="mark-popup">
+  <div class="pop-sel" id="mark-pop-sel"></div>
+  <input class="pop-input" id="mark-pop-note" placeholder="Your note (optional)…">
+  <div class="pop-acts">
+    <button class="pop-save" onclick="saveMark()">Save</button>
+    <button class="pop-del" id="mark-pop-del" onclick="deleteMark()">Delete</button>
+    <button class="pop-can" onclick="closeMarkPopup()">Cancel</button>
   </div>
 </div>
 

@@ -804,12 +804,21 @@ input,textarea{font-family:'IBM Plex Sans Thai',sans-serif;outline:none}
 }
 .overall-ta:focus{border-color:var(--blue)}
 .overall-ta::placeholder{color:var(--muted)}
-#annot-popup{
+#annot-popup,#mark-popup{
   position:fixed;z-index:500;background:var(--card2);border:1px solid var(--border);
   border-radius:14px;padding:1rem;width:min(320px,92vw);
   box-shadow:0 8px 32px rgba(77,122,158,.18);display:none;
 }
-#annot-popup.open{display:block;animation:fadeUp .18s ease}
+#annot-popup.open,#mark-popup.open{display:block;animation:fadeUp .18s ease}
+.mark{
+  background:rgba(132,204,22,.16);border-bottom:2px solid var(--gold);
+  border-radius:3px;padding:0 1px;cursor:pointer;
+}
+.nav-badge{
+  background:var(--red);color:#fff;border-radius:10px;
+  padding:.04rem .45rem;font-size:.66rem;font-family:'Kanit',sans-serif;
+  margin-left:auto;
+}
 .pop-sel{
   font-size:.85rem;color:var(--muted);margin-bottom:.6rem;
   border-left:2px solid var(--blue);padding-left:.6rem;word-break:break-all;
