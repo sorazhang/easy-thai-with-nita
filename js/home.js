@@ -25,4 +25,41 @@ export function renderHome(){
   document.getElementById('stat-sessions').textContent=pastCount;
   document.getElementById('stat-words').textContent=S.cards.length;
   document.getElementById('stat-entries').textContent=S.entries.length;
+  renderDashAssignments();
+}
+function dashAssignmentCard(a){
+  var sub=a.submissions[S.uid];
+  var unseen=sub.status==='reviewed'&&!sub.seenReview;
+  return '<div class="journal-card" onclick="navTo(\'assignments\');openAssignmentStudent(\''+a.id+'\')">'
+    +'<div class="jc-title">'+a.sentences.length+' sentence'+(a.sentences.length>1?'s':'')+' — Translation'+(unseen?' <span class="pill pill-r">New</span>':'')+'</div>'
+    +'<div class="jc-preview">'+esc(a.sentences[0].th)+(a.sentences.length>1?'…':'')+'</div>'
+    +'<div class="jc-foot"><div class="jc-date">'+fmtDate(a.createdDate)+'</div></div>'
+    +'</div>';
+}
+function renderDashAssignments(){
+  var mine=S.assignments.filter(function(a){return a.submissions&&a.submissions[S.uid];});
+  var pending=mine.filter(function(a){return a.submissions[S.uid].status==='assigned';})
+    .sort(function(a,b){return a.createdDate<b.createdDate?1:-1;});
+  var reviewed=mine.filter(function(a){return a.submissions[S.uid].status==='reviewed';})
+    .sort(function(a,b){return (a.submissions[S.uid].reviewedDate||'')<(b.submissions[S.uid].reviewedDate||'')?1:-1;});
+
+  var pendingLbl=document.getElementById('dash-pending-lbl');
+  var pendingEl=document.getElementById('dash-pending-assignments');
+  if(pending.length){
+    pendingLbl.style.display='';
+    pendingEl.innerHTML=pending.map(dashAssignmentCard).join('');
+  } else {
+    pendingLbl.style.display='none';
+    pendingEl.innerHTML='';
+  }
+
+  var reviewedLbl=document.getElementById('dash-reviewed-lbl');
+  var reviewedEl=document.getElementById('dash-reviewed-assignments');
+  if(reviewed.length){
+    reviewedLbl.style.display='';
+    reviewedEl.innerHTML=reviewed.slice(0,3).map(dashAssignmentCard).join('');
+  } else {
+    reviewedLbl.style.display='none';
+    reviewedEl.innerHTML='';
+  }
 }
